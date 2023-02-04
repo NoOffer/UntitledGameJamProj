@@ -32,6 +32,6 @@ public class CamController : MonoBehaviour
             prevMousePos = Input.mousePosition;
         }
         Camera.main.orthographicSize = Mathf.Clamp(Camera.main.orthographicSize - Input.mouseScrollDelta.y * camResizeSpeed, minViewPort, maxViewPort);
-        Debug.Log(Camera.main.orthographicSize);
+        //Debug.Log(Camera.main.orthographicSize);
     }
 }
