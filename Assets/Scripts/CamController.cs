@@ -5,7 +5,11 @@ using UnityEngine.XR;
 
 public class CamController : MonoBehaviour
 {
-    [SerializeField] private float speed;
+    [SerializeField] private float minViewPort;
+    [SerializeField] private float maxViewPort;
+    [SerializeField] private float camResizeSpeed;
+
+    [SerializeField] private float camMoveSpeed;
 
     private Vector3 prevMousePos;
 
@@ -24,8 +28,10 @@ public class CamController : MonoBehaviour
         }
         if (Input.GetMouseButton(2))
         {
-            transform.position -= (Input.mousePosition - prevMousePos) * speed;
+            transform.position -= (Input.mousePosition - prevMousePos) * camMoveSpeed * Camera.main.orthographicSize;
             prevMousePos = Input.mousePosition;
         }
+        Camera.main.orthographicSize = Mathf.Clamp(Camera.main.orthographicSize - Input.mouseScrollDelta.y * camResizeSpeed, minViewPort, maxViewPort);
+        Debug.Log(Camera.main.orthographicSize);
     }
 }

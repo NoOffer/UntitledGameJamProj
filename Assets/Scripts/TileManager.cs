@@ -39,12 +39,18 @@ public class TileManager : MonoBehaviour
     [SerializeField] private Sprite pipeSpriteX;
     [SerializeField] private Sprite pipeSpriteY;
 
-    [SerializeField] private GameObject previewX;
-    [SerializeField] private GameObject previewY;
+    [SerializeField] private GameObject pipePreviewX;
+    [SerializeField] private GameObject pipePreviewY;
     [SerializeField] private Transform testTransform;
+
+    [SerializeField] private Tilemap roomTileMap;
+    [SerializeField] private Sprite roomSprite;
+
+    [SerializeField] private GameObject roomPreview;
 
     private Tile pipeTileX;
     private Tile pipeTileY;
+    private Tile roomTile;
 
     private float oreAmount;
     private float ore1Amount;
@@ -58,8 +64,8 @@ public class TileManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        previewX.SetActive(false);
-        previewY.SetActive(false);
+        pipePreviewX.SetActive(false);
+        pipePreviewY.SetActive(false);
 
         pipeTileX = ScriptableObject.CreateInstance<Tile>();
         pipeTileX.sprite = pipeSpriteX;
@@ -74,11 +80,11 @@ public class TileManager : MonoBehaviour
                 mineralGrid[i, j] = new MineralInfo(3f, 2f, 1f);
             }
         }
-        mineralGrid[50, 100].xPipe = true;
-        mineralGrid[50, 100].yPipe = true;
-        mineralGrid[50, 100].coverage = true;
-        mineralGrid[49, 100].coverage = true;
+        mineralGrid[50, 99].xPipe = true;
+        mineralGrid[50, 99].yPipe = true;
         mineralGrid[50, 99].coverage = true;
+        mineralGrid[49, 99].coverage = true;
+        mineralGrid[50, 98].coverage = true;
         pipeTilemapX.SetTile(new Vector3Int(0, 0, 0), pipeTileX);
         pipeTilemapY.SetTile(new Vector3Int(0, 0, 0), pipeTileY);
     }
@@ -87,12 +93,12 @@ public class TileManager : MonoBehaviour
     void Update()
     {
         Vector2 rawPos = (Camera.main.ScreenToWorldPoint(Input.mousePosition)) / tileSideLen;
-        Vector2 pos = new Vector2(Mathf.Round(rawPos.x + 0.5f) - 0.5f, Mathf.Round(rawPos.y + 0.5f) - 0.5f);
-        testTransform.position = new Vector3(pos.x, pos.y, 1);
+        Vector2 pos;
 
         // Set pipe
+        if (false)
         {
-            bool CheckSurrounding(Vector2Int checkPos, bool isHorizontal)
+            bool CheckAvailability(Vector2Int checkPos, bool isHorizontal)
             {
                 if (isHorizontal)
                 {
@@ -110,20 +116,22 @@ public class TileManager : MonoBehaviour
                 }
             }
 
-            //Avoid index out of bound
+            pos = new Vector2(Mathf.Round(rawPos.x + 0.5f) - 0.5f, Mathf.Round(rawPos.y + 0.5f) - 0.5f);
+
             Vector2Int tilePos = new Vector2Int((int)(pos.x - 0.5f), (int)(pos.y - 0.5f));
-            Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize - 2);
+            Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize - 1);
+            //Avoid index out of bound
             if (tileIdx.x > 0 && tileIdx.x < gridSize - 1 && tileIdx.y > 0 && tileIdx.y < gridSize - 1)
             {
                 if (Mathf.Abs(rawPos.x - pos.x) > Mathf.Abs(rawPos.y - pos.y))
                 {
-                    previewY.SetActive(true);
-                    previewX.SetActive(false);
+                    pipePreviewY.SetActive(true);
+                    pipePreviewX.SetActive(false);
                     if (rawPos.x > pos.x)
                     {
-                        if (CheckSurrounding(tileIdx + new Vector2Int(1, 0), false))
+                        if (CheckAvailability(tileIdx + new Vector2Int(1, 0), false))
                         {
-                            previewY.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.green;
                             if (Input.GetMouseButtonDown(0))
                             {
                                 pipeTilemapY.SetTile(new Vector3Int(tilePos.x + 1, tilePos.y, 0), pipeTileY);
@@ -134,15 +142,15 @@ public class TileManager : MonoBehaviour
                         }
                         else
                         {
-                            previewY.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        previewY.transform.position = pos + new Vector2(tileSideLen / 2, 0);
+                        pipePreviewY.transform.position = pos + new Vector2(tileSideLen / 2, 0);
                     }
                     else
                     {
-                        if (CheckSurrounding(tileIdx, false))
+                        if (CheckAvailability(tileIdx, false))
                         {
-                            previewY.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.green;
                             if (Input.GetMouseButtonDown(0))
                             {
                                 pipeTilemapY.SetTile(new Vector3Int(tilePos.x, tilePos.y, 0), pipeTileY);
@@ -153,20 +161,20 @@ public class TileManager : MonoBehaviour
                         }
                         else
                         {
-                            previewY.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        previewY.transform.position = pos - new Vector2(tileSideLen / 2, 0);
+                        pipePreviewY.transform.position = pos - new Vector2(tileSideLen / 2, 0);
                     }
                 }
                 else
                 {
-                    previewX.SetActive(true);
-                    previewY.SetActive(false);
+                    pipePreviewX.SetActive(true);
+                    pipePreviewY.SetActive(false);
                     if (rawPos.y > pos.y)
                     {
-                        if (CheckSurrounding(tileIdx + new Vector2Int(0, 1), true))
+                        if (CheckAvailability(tileIdx + new Vector2Int(0, 1), true))
                         {
-                            previewX.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.green;
                             if (Input.GetMouseButtonDown(0))
                             {
                                 pipeTilemapX.SetTile(new Vector3Int(tilePos.x, tilePos.y + 1, 0), pipeTileX);
@@ -177,15 +185,15 @@ public class TileManager : MonoBehaviour
                         }
                         else
                         {
-                            previewX.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        previewX.transform.position = pos + new Vector2(0, tileSideLen / 2);
+                        pipePreviewX.transform.position = pos + new Vector2(0, tileSideLen / 2);
                     }
                     else
                     {
-                        if (CheckSurrounding(tileIdx, true))
+                        if (CheckAvailability(tileIdx, true))
                         {
-                            previewX.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.green;
                             if (Input.GetMouseButtonDown(0))
                             {
                                 pipeTilemapX.SetTile(new Vector3Int(tilePos.x, tilePos.y, 0), pipeTileX);
@@ -196,14 +204,26 @@ public class TileManager : MonoBehaviour
                         }
                         else
                         {
-                            previewX.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        previewX.transform.position = pos - new Vector2(0, tileSideLen / 2);
+                        pipePreviewX.transform.position = pos - new Vector2(0, tileSideLen / 2);
                     }
                 }
             }
+            else
+            {
+                pipePreviewX.SetActive(false);
+                pipePreviewY.SetActive(false);
+            }
+            //Debug.Log(tilePos);
         }
-        Debug.Log(pos);
+
+        // Set room
+        {
+            pos = new Vector2(Mathf.Round(rawPos.x) - 0.5f, Mathf.Round(rawPos.y + 0.5f) - 0.5f);
+        }
+
+        testTransform.position = new Vector3(pos.x, pos.y, 1);
     }
 
     //private void OnDrawGizmos()
