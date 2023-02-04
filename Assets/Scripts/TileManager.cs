@@ -1,33 +1,39 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using static UnityEditor.PlayerSettings;
+using UnityEngine.UI;
+
+enum OreType
+{
+    Basic, Mana, Advanced, None
+}
 
 struct MineralInfo
 {
-    public MineralInfo(float param_OreRate, float param_Ore1Rate, float param_Ore2Rate)
+    public MineralInfo(OreType type, int amount)
     {
-        oreRate = param_OreRate;
-        ore1Rate = param_Ore1Rate;
-        ore2Rate = param_Ore2Rate;
-        xPipe = false;
-        yPipe = false;
+        oreType = type;
+        oreAmount = amount;
         coverage = false;
+        advanced = false;
     }
 
-    public float oreRate;
-    public float ore1Rate;
-    public float ore2Rate;
-    public bool xPipe;
-    public bool yPipe;
+    public OreType oreType;
+    public int oreAmount;
     public bool coverage;
+    public bool advanced;
 
-    public float Output()
+    public int Output()
     {
-        return coverage ? 1 : 0;
+        if (coverage && oreAmount > 0 && (oreType != OreType.Advanced || advanced))
+        {
+            oreAmount--;
+            return (int)oreType;
+        }
+        else
+        {
+            return (int)OreType.None;
+        }
     }
 }
 
@@ -39,6 +45,9 @@ struct RoomPlacement
 
 public class TileManager : MonoBehaviour
 {
+    [SerializeField] private float tInterval;
+    private float timer = 0;
+
     [SerializeField] private int gridSize;
     //[SerializeField] private float tileSideLen;
 
@@ -51,22 +60,34 @@ public class TileManager : MonoBehaviour
 
     [SerializeField] private Transform roomsRoot;
     [SerializeField] private RoomPlacement[] rooms;
-    [SerializeField] private LayerMask whatIsRoomSupport;
+    [SerializeField] private LayerMask whatIsBasicRoomSupport;
     [SerializeField] private LayerMask whatIsMachining;
     [SerializeField] private LayerMask whatIsAdvancedMachining;
     [SerializeField] private LayerMask whatIsResearch;
     [SerializeField] private LayerMask whatIsAdvancedResearch;
+    [SerializeField] private LayerMask whatIsResidence;
+    [SerializeField] private LayerMask whatIsAdvancedResidence;
     [SerializeField] private GameObject roomPreview;
 
     [SerializeField] private Transform testTransform;
 
-    private Tile pipeTile;
+    [SerializeField] private Tilemap oreMap;
 
-    [SerializeField] private bool isPipeHorizontal = false;
+    private bool isPipeHorizontal = false;
     [SerializeField] private int roomType = 0;
     [SerializeField] private bool updateMode = false;
 
     private MineralInfo[,] mineralGrid;
+    [SerializeField] private Sprite basicOreSprite;
+    [SerializeField] private Sprite manaOreSprite;
+    [SerializeField] private Sprite advancedOreSprite;
+    private int[] oreStorage;
+    private int[] oreRate;
+    private int[] alloyStorage;
+    private int population;
+
+    [SerializeField] private Text oreDisplay;
+    [SerializeField] private Image constructionType;
 
     // Start is called before the first frame update
     void Start()
@@ -78,12 +99,34 @@ public class TileManager : MonoBehaviour
         {
             for (int j = 0; j < gridSize; j++)
             {
-                mineralGrid[i, j] = new MineralInfo(3f, 2f, 1f);
+                float p = UnityEngine.Random.Range(0f, 1f);
+                if (p < 0.1)
+                {
+                    mineralGrid[i, j] = new MineralInfo(OreType.Advanced, 100);
+                }
+                else if (p < 0.3)
+                {
+                    mineralGrid[i, j] = new MineralInfo(OreType.Mana, 100);
+                }
+                else if (p < 0.6)
+                {
+                    mineralGrid[i, j] = new MineralInfo(OreType.Basic, 100);
+                }
+                SetOreTile(i, j);
             }
         }
 
+        mineralGrid[50, 99] = new MineralInfo(OreType.Basic, 100);
+        mineralGrid[49, 99] = new MineralInfo(OreType.Basic, 100);
         mineralGrid[50, 99].coverage = true;
         mineralGrid[49, 99].coverage = true;
+        SetOreTile(50, 99);
+        SetOreTile(49, 99);
+
+        oreStorage = new int[] { 0, 0, 0 };
+        oreRate = new int[] { 1, 0, 0 };
+        alloyStorage = new int[] { 0, 0, 0 };
+        population = 0;
     }
 
     // Update is called once per frame
@@ -93,8 +136,9 @@ public class TileManager : MonoBehaviour
         Vector2 pos;
 
         // Set pipe
-        if (true)
+        if (rawPos.y < 1)
         {
+            roomPreview.SetActive(false);
             pos = new Vector2(Mathf.Round(rawPos.x), Mathf.Round(rawPos.y));
 
             if (gridSize / 2 > pos.x && pos.x > -gridSize / 2 && 0 > pos.y && pos.y > -gridSize)
@@ -117,7 +161,12 @@ public class TileManager : MonoBehaviour
 
                             if (Input.GetMouseButtonDown(0))
                             {
-                                Instantiate(advancedPipePrefab, c.transform.position - new Vector3(0f, 0f, 1f), c.transform.rotation, pipesRoot);
+                                pos = c.transform.position - new Vector3(0f, 0f, 1f);
+                                Instantiate(advancedPipePrefab, pos, c.transform.rotation, pipesRoot);
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize)].advanced = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize)].advanced = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].advanced = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].advanced = true;
                             }
                         }
                     }
@@ -141,9 +190,10 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        else if (Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                        else if (alloyStorage[0] > 4 && (
+                            Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
                             Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
-                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
+                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe)))
                         {
                             pipePreview.GetComponent<SpriteRenderer>().color = Color.green;
 
@@ -154,6 +204,7 @@ public class TileManager : MonoBehaviour
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
+                                alloyStorage[0] -= 5;
                             }
                         }
                         else
@@ -169,9 +220,10 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        else if (Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                        else if (alloyStorage[0] > 4 && (
+                            Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
                             Physics2D.OverlapBox(pos + new Vector2(0f, 1f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
-                            Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
+                            Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe)))
                         {
                             pipePreview.GetComponent<SpriteRenderer>().color = Color.green;
 
@@ -182,6 +234,7 @@ public class TileManager : MonoBehaviour
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
+                                alloyStorage[0] -= 5;
                             }
                         }
                         else
@@ -204,69 +257,227 @@ public class TileManager : MonoBehaviour
         // Set room
         else
         {
+            pipePreview.SetActive(false);
+            roomPreview.SetActive(true);
             //Vector3Int tilePos = new Vector3Int((int)(pos.x), (int)(pos.y - 0.5f), 0);
 
             void RoomPreviewAndSetup()
             {
-                roomPreview.SetActive(true);
-                roomPreview.transform.position = pos;
                 if (Input.GetMouseButtonDown(0))
                 {
                     Instantiate(rooms[roomType].prefab, new Vector3(pos.x, pos.y, roomType), Quaternion.identity, roomsRoot);
+                    switch (roomType)
+                    {
+                        case 0:
+                            oreRate[0]++;
+                            break;
+                        case 1:
+                            oreRate[1]++;
+                            break;
+                        case 2:
+                            population += 3;
+                            break;
+                        case 3:
+                            oreRate[2]++;
+                            break;
+                        case 4:
+                            oreRate[1]++;
+                            break;
+                        case 5:
+                            population += 3;
+                            break;
+                    }
+                    if (updateMode)
+                    {
+                        alloyStorage[2] -= 5;
+                    }
+
+                    else
+                    {
+                        alloyStorage[0] -= 5;
+                    }
+                    if (roomType < 2)
+                    {
+                        population--;
+                    }
                 }
             }
+
+            if (Input.GetMouseButtonDown(1))
+            {
+                roomType = (roomType + 1) % 6;
+            }
+            updateMode = roomType > 2;
+            pos = new Vector2(Mathf.Round(rawPos.x / 2) * 2, Mathf.Round(rawPos.y / 2) * 2);
+
             if (updateMode)
             {
-                if (roomType == 0)
+                if (roomType == 3)
                 {
-                    Collider2D c = Physics2D.OverlapBox(rawPos, new Vector2(0.1f, 0.1f), 0f, whatIsMachining);
+                    Collider2D c = Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsMachining);
                     if (c)
                     {
                         pos = c.transform.position;
 
-                        Debug.Log(pos);
-                        if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedMachining) &&
-                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsMachining) &&
-                            Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsMachining))
+                        //Debug.Log(pos);
+                        if (Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedMachining))
                         {
-                            RoomPreviewAndSetup();
+                            roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                        }
+                        else
+                        {
+                            if (alloyStorage[2] > 4)
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.green;
+                                RoomPreviewAndSetup();
+                            }
+                            else
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                            }
                         }
                     }
+                    else
+                    {
+                        roomPreview.GetComponent<SpriteRenderer>().color = Color.white;
+                    }
                 }
-                else if (roomType == 1)
+                else if (roomType == 4)
                 {
-                    Collider2D c = Physics2D.OverlapBox(rawPos, new Vector2(0.1f, 0.1f), 0f, whatIsResearch);
+                    Collider2D c = Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsResearch);
                     if (c)
                     {
-                        pos = c.transform.position;
-                        if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedResearch) &&
-                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsResearch) &&
-                            Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsResearch))
+                        if (Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedResearch))
                         {
-                            RoomPreviewAndSetup();
+                            roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
+                        else
+                        {
+                            if (alloyStorage[2] > 4)
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.green;
+                                RoomPreviewAndSetup();
+                            }
+                            else
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        roomPreview.GetComponent<SpriteRenderer>().color = Color.white;
                     }
                 }
                 else
                 {
-                    roomPreview.SetActive(false);
+                    Collider2D c = Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsResidence);
+                    if (c)
+                    {
+                        if (Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedResidence))
+                        {
+                            roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                        }
+                        else
+                        {
+                            if (alloyStorage[2] > 4)
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.green;
+                                RoomPreviewAndSetup();
+                            }
+                            else
+                            {
+                                roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        roomPreview.GetComponent<SpriteRenderer>().color = Color.white;
+                    }
                 }
             }
             else
             {
-                pos = new Vector2(Mathf.Round(rawPos.x / 2) * 2, Mathf.Round(rawPos.y / 2 + 0.5f) * 2);
-
-                if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport) &&
-                Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport))
+                if ((roomType == 2 || population > 0) && alloyStorage[0] > 4)
                 {
-                    RoomPreviewAndSetup();
+                    if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsBasicRoomSupport) &&
+                    Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.2f, 0.2f), 0, whatIsBasicRoomSupport))
+                    {
+                        roomPreview.GetComponent<SpriteRenderer>().color = Color.green;
+                        RoomPreviewAndSetup();
+                    }
+                    else
+                    {
+                        roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
+                    }
                 }
                 else
                 {
-                    roomPreview.SetActive(false);
+                    roomPreview.GetComponent<SpriteRenderer>().color = Color.red;
                 }
             }
+            roomPreview.transform.position = pos;
         }
+    }
+
+    private void FixedUpdate()
+    {
+        if (timer > tInterval)
+        {
+            timer -= tInterval;
+
+            // Harvest ore
+            Debug.Log(oreRate[0] + " " + oreRate[1] + " " + oreRate[2]);
+            for (int i = 0; i < gridSize; i++)
+            {
+                for (int j = 0; j < gridSize; j++)
+                {
+                    int res = mineralGrid[i, j].Output();
+                    if (res < 3)
+                    {
+                        oreStorage[res]++;
+                    }
+                }
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                alloyStorage[i] += Mathf.Min(oreRate[i], oreStorage[i]);
+                oreStorage[i] -= Mathf.Min(oreRate[i], oreStorage[i]);
+            }
+        }
+        timer += Time.fixedDeltaTime;
+    }
+
+    private void LateUpdate()
+    {
+        oreDisplay.text = "Ore: " + oreStorage[0] +
+            ", Mana: " + oreStorage[1] +
+            ", Ao: " + oreStorage[2] +
+            ", Alloy:" + alloyStorage[0] +
+            ", Mana: " + alloyStorage[1] +
+            ", Aa: " + alloyStorage[2] +
+            ", Population: " + population;
+        constructionType.sprite = rooms[roomType].prefab.GetComponent<SpriteRenderer>().sprite;
+    }
+
+    void SetOreTile(int i, int j)
+    {
+        Tile tile = ScriptableObject.CreateInstance<Tile>();
+        switch (mineralGrid[i, j].oreType)
+        {
+            case OreType.Basic:
+                tile.sprite = basicOreSprite;
+                break;
+            case OreType.Mana:
+                tile.sprite = manaOreSprite;
+                break;
+            case OreType.Advanced:
+                tile.sprite = advancedOreSprite;
+                break;
+        }
+
+        oreMap.SetTile(new Vector3Int(i - gridSize / 2, j - gridSize, 10), tile);
     }
 
     //private void OnDrawGizmos()
@@ -275,7 +486,7 @@ public class TileManager : MonoBehaviour
     //    {
     //        for (int j = 0; j < gridSize; j++)
     //        {
-    //            if (mineralGrid[i, j].Output() > 0)
+    //            if (mineralGrid[i, j].coverage)
     //            {
     //                Gizmos.color = Color.green;
     //            }
