@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using static UnityEditor.PlayerSettings;
 
 struct MineralInfo
 {
@@ -26,59 +27,51 @@ struct MineralInfo
 
     public float Output()
     {
-        return coverage ? oreRate : 0;
+        return coverage ? 1 : 0;
     }
 }
 
 [Serializable]
 struct RoomPlacement
 {
-    public Tilemap tilemap;
-    public Sprite sprite;
+    public GameObject prefab;
 }
 
 public class TileManager : MonoBehaviour
 {
     [SerializeField] private int gridSize;
-    [SerializeField] private float tileSideLen;
+    //[SerializeField] private float tileSideLen;
 
-    [SerializeField] private Tilemap pipeTilemapX;
-    [SerializeField] private Tilemap pipeTilemapY;
-    [SerializeField] private Sprite pipeSpriteX;
-    [SerializeField] private Sprite pipeSpriteY;
+    [SerializeField] private Transform pipesRoot;
+    [SerializeField] private GameObject basicPipePrefab;
+    [SerializeField] private GameObject advancedPipePrefab;
+    [SerializeField] private LayerMask whatIsPipe;
+    [SerializeField] private LayerMask whatIsAdvancedPipe;
+    [SerializeField] private GameObject pipePreview;
 
-    [SerializeField] private GameObject pipePreviewX;
-    [SerializeField] private GameObject pipePreviewY;
-    [SerializeField] private Transform testTransform;
-
+    [SerializeField] private Transform roomsRoot;
     [SerializeField] private RoomPlacement[] rooms;
     [SerializeField] private LayerMask whatIsRoomSupport;
-
+    [SerializeField] private LayerMask whatIsMachining;
+    [SerializeField] private LayerMask whatIsAdvancedMachining;
+    [SerializeField] private LayerMask whatIsResearch;
+    [SerializeField] private LayerMask whatIsAdvancedResearch;
     [SerializeField] private GameObject roomPreview;
 
-    private Tile pipeTileX;
-    private Tile pipeTileY;
-    private Tile roomTile;
+    [SerializeField] private Transform testTransform;
 
-    private float oreAmount;
-    private float ore1Amount;
-    private float ore2Amount;
-    private float oreUpgradeRate;
-    private float ore1UpgradeRate;
-    private float ore2UpgradeRate;
+    private Tile pipeTile;
+
+    [SerializeField] private bool isPipeHorizontal = false;
+    [SerializeField] private int roomType = 0;
+    [SerializeField] private bool updateMode = false;
 
     private MineralInfo[,] mineralGrid;
 
     // Start is called before the first frame update
     void Start()
     {
-        pipePreviewX.SetActive(false);
-        pipePreviewY.SetActive(false);
-
-        pipeTileX = ScriptableObject.CreateInstance<Tile>();
-        pipeTileX.sprite = pipeSpriteX;
-        pipeTileY = ScriptableObject.CreateInstance<Tile>();
-        pipeTileY.sprite = pipeSpriteY;
+        pipePreview.SetActive(false);
 
         mineralGrid = new MineralInfo[gridSize, gridSize];
         for (int i = 0; i < gridSize; i++)
@@ -88,167 +81,190 @@ public class TileManager : MonoBehaviour
                 mineralGrid[i, j] = new MineralInfo(3f, 2f, 1f);
             }
         }
-        mineralGrid[50, 99].xPipe = true;
-        mineralGrid[50, 99].yPipe = true;
+
         mineralGrid[50, 99].coverage = true;
         mineralGrid[49, 99].coverage = true;
-        mineralGrid[50, 98].coverage = true;
-        pipeTilemapX.SetTile(new Vector3Int(0, 0, 0), pipeTileX);
-        pipeTilemapY.SetTile(new Vector3Int(0, 0, 0), pipeTileY);
     }
 
     // Update is called once per frame
     void Update()
     {
-        Vector2 rawPos = (Camera.main.ScreenToWorldPoint(Input.mousePosition)) / tileSideLen;
+        Vector2 rawPos = (Camera.main.ScreenToWorldPoint(Input.mousePosition));
         Vector2 pos;
 
         // Set pipe
-        if (rawPos.y < 1f)
+        if (true)
         {
-            bool CheckAvailability(Vector2Int checkPos, bool isHorizontal)
-            {
-                if (isHorizontal)
-                {
-                    return !mineralGrid[checkPos.x, checkPos.y].xPipe &&
-                        (mineralGrid[checkPos.x, checkPos.y].yPipe || mineralGrid[checkPos.x - 1, checkPos.y].xPipe ||
-                        mineralGrid[checkPos.x, checkPos.y - 1].yPipe || mineralGrid[checkPos.x + 1, checkPos.y - 1].yPipe ||
-                        mineralGrid[checkPos.x + 1, checkPos.y].xPipe || mineralGrid[checkPos.x + 1, checkPos.y].yPipe);
-                }
-                else
-                {
-                    return !mineralGrid[checkPos.x, checkPos.y].yPipe &&
-                        (mineralGrid[checkPos.x, checkPos.y].xPipe || mineralGrid[checkPos.x - 1, checkPos.y].xPipe ||
-                        mineralGrid[checkPos.x, checkPos.y - 1].yPipe || mineralGrid[checkPos.x - 1, checkPos.y + 1].xPipe ||
-                        mineralGrid[checkPos.x, checkPos.y + 1].xPipe || mineralGrid[checkPos.x, checkPos.y + 1].yPipe);
-                }
-            }
-
             pos = new Vector2(Mathf.Round(rawPos.x), Mathf.Round(rawPos.y));
-            //pos = new Vector2(Mathf.Round(rawPos.x - 0.5f) + 0.5f, Mathf.Round(rawPos.y - 0.5f) + 0.5f);
 
-            Vector2Int tilePos = new Vector2Int((int)(pos.x - 0.5f), (int)(pos.y - 0.5f));
-            Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize - 1);
-            //Avoid index out of bound
-            if (tileIdx.x > 0 && tileIdx.x < gridSize - 1 && tileIdx.y > 0 && tileIdx.y < gridSize - 1)
+            if (gridSize / 2 > pos.x && pos.x > -gridSize / 2 && 0 > pos.y && pos.y > -gridSize)
             {
-                if (Mathf.Abs(rawPos.x - pos.x) > Mathf.Abs(rawPos.y - pos.y))
+                pipePreview.SetActive(true);
+                if (updateMode)
                 {
-                    pipePreviewY.SetActive(true);
-                    pipePreviewX.SetActive(false);
-                    if (rawPos.x > pos.x)
+                    Collider2D c = Physics2D.OverlapBox(rawPos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe);
+                    if (c)
                     {
-                        if (CheckAvailability(tileIdx + new Vector2Int(1, 0), false))
+                        pipePreview.transform.position = c.transform.position;
+                        pipePreview.transform.rotation = c.transform.rotation;
+                        if (Physics2D.OverlapCircle(rawPos, 0.1f, whatIsAdvancedPipe))
                         {
-                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.green;
-                            if (Input.GetMouseButtonDown(0))
-                            {
-                                pipeTilemapY.SetTile(new Vector3Int(tilePos.x + 1, tilePos.y, 0), pipeTileY);
-                                mineralGrid[tileIdx.x + 1, tileIdx.y].yPipe = true;
-                                mineralGrid[tileIdx.x, tileIdx.y].coverage = true;
-                                mineralGrid[tileIdx.x + 1, tileIdx.y].coverage = true;
-                            }
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
                         else
                         {
-                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.green;
+
+                            if (Input.GetMouseButtonDown(0))
+                            {
+                                Instantiate(advancedPipePrefab, c.transform.position - new Vector3(0f, 0f, 1f), c.transform.rotation, pipesRoot);
+                            }
                         }
-                        pipePreviewY.transform.position = pos;
                     }
                     else
                     {
-                        if (CheckAvailability(tileIdx, false))
-                        {
-                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.green;
-                            if (Input.GetMouseButtonDown(0))
-                            {
-                                pipeTilemapY.SetTile(new Vector3Int(tilePos.x, tilePos.y, 0), pipeTileY);
-                                mineralGrid[tileIdx.x, tileIdx.y].yPipe = true;
-                                mineralGrid[tileIdx.x, tileIdx.y].coverage = true;
-                                mineralGrid[tileIdx.x - 1, tileIdx.y].coverage = true;
-                            }
-                        }
-                        else
-                        {
-                            pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
-                        }
-                        pipePreviewY.transform.position = pos;
+                        pipePreview.SetActive(false);
                     }
                 }
                 else
                 {
-                    pipePreviewX.SetActive(true);
-                    pipePreviewY.SetActive(false);
-                    if (rawPos.y > pos.y)
+                    pipePreview.transform.position = pos;
+                    if (Input.mouseScrollDelta.y != 0)
                     {
-                        if (CheckAvailability(tileIdx + new Vector2Int(0, 1), true))
+                        isPipeHorizontal = !isPipeHorizontal;
+                    }
+                    if (isPipeHorizontal)
+                    {
+                        pipePreview.transform.rotation = Quaternion.Euler(0f, 0f, 90f);
+                        if (Physics2D.OverlapBox(pos + new Vector2(0.5f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos - new Vector2(0.5f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
                         {
-                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
+                        }
+                        else if (Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
+                        {
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.green;
+
                             if (Input.GetMouseButtonDown(0))
                             {
-                                pipeTilemapX.SetTile(new Vector3Int(tilePos.x, tilePos.y + 1, 0), pipeTileX);
-                                mineralGrid[tileIdx.x, tileIdx.y + 1].xPipe = true;
-                                mineralGrid[tileIdx.x, tileIdx.y].coverage = true;
-                                mineralGrid[tileIdx.x, tileIdx.y + 1].coverage = true;
+                                Instantiate(basicPipePrefab, new Vector3(pos.x, pos.y, 2f), Quaternion.Euler(0f, 0f, 90f), pipesRoot);
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
                             }
                         }
                         else
                         {
-                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewX.transform.position = pos;
                     }
                     else
                     {
-                        if (CheckAvailability(tileIdx, true))
+                        pipePreview.transform.rotation = Quaternion.identity;
+                        if (Physics2D.OverlapBox(pos + new Vector2(0f, 0.5f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos - new Vector2(0f, 0.5f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
                         {
-                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.green;
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
+                        }
+                        else if (Physics2D.OverlapBox(pos, new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos + new Vector2(0f, 1f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe) ||
+                            Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.1f, 0.1f), 0f, whatIsPipe))
+                        {
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.green;
+
                             if (Input.GetMouseButtonDown(0))
                             {
-                                pipeTilemapX.SetTile(new Vector3Int(tilePos.x, tilePos.y, 0), pipeTileX);
-                                mineralGrid[tileIdx.x, tileIdx.y].xPipe = true;
-                                mineralGrid[tileIdx.x, tileIdx.y].coverage = true;
-                                mineralGrid[tileIdx.x, tileIdx.y - 1].coverage = true;
+                                Instantiate(basicPipePrefab, new Vector3(pos.x, pos.y, 2f), Quaternion.identity, pipesRoot);
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
+                                mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
                             }
                         }
                         else
                         {
-                            pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
+                            pipePreview.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewX.transform.position = pos;
                     }
                 }
             }
             else
             {
-                pipePreviewX.SetActive(false);
-                pipePreviewY.SetActive(false);
+                pipePreview.SetActive(false);
             }
-            //Debug.Log(tilePos);
-            testTransform.position = new Vector3(pos.x, pos.y, 1);
-            Debug.Log(pos - new Vector2(0.5f, 0.5f));
+
+            //testTransform.position = new Vector3(pos.x, pos.y, 1);
+            //Debug.Log(pos);
         }
 
 
         // Set room
         else
         {
-            pos = new Vector2(Mathf.Round(rawPos.x), Mathf.Round(rawPos.y + 0.5f) - 0.5f);
-            Vector3Int tilePos = new Vector3Int((int)(pos.x), (int)(pos.y - 0.5f), 0);
-            if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport) &&
-                Physics2D.OverlapBox(pos - new Vector2(0f, 0.5f), new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport))
+            //Vector3Int tilePos = new Vector3Int((int)(pos.x), (int)(pos.y - 0.5f), 0);
+
+            void RoomPreviewAndSetup()
             {
                 roomPreview.SetActive(true);
                 roomPreview.transform.position = pos;
                 if (Input.GetMouseButtonDown(0))
                 {
-                    roomTile.sprite = rooms[0].sprite;
-                    rooms[0].tilemap.SetTile(tilePos, roomTile);
+                    Instantiate(rooms[roomType].prefab, new Vector3(pos.x, pos.y, roomType), Quaternion.identity, roomsRoot);
+                }
+            }
+            if (updateMode)
+            {
+                if (roomType == 0)
+                {
+                    Collider2D c = Physics2D.OverlapBox(rawPos, new Vector2(0.1f, 0.1f), 0f, whatIsMachining);
+                    if (c)
+                    {
+                        pos = c.transform.position;
+
+                        Debug.Log(pos);
+                        if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedMachining) &&
+                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsMachining) &&
+                            Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsMachining))
+                        {
+                            RoomPreviewAndSetup();
+                        }
+                    }
+                }
+                else if (roomType == 1)
+                {
+                    Collider2D c = Physics2D.OverlapBox(rawPos, new Vector2(0.1f, 0.1f), 0f, whatIsResearch);
+                    if (c)
+                    {
+                        pos = c.transform.position;
+                        if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsAdvancedResearch) &&
+                            Physics2D.OverlapBox(pos - new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsResearch) &&
+                            Physics2D.OverlapBox(pos + new Vector2(1f, 0f), new Vector2(0.2f, 0.2f), 0, whatIsResearch))
+                        {
+                            RoomPreviewAndSetup();
+                        }
+                    }
+                }
+                else
+                {
+                    roomPreview.SetActive(false);
                 }
             }
             else
             {
-                roomPreview.SetActive(false);
+                pos = new Vector2(Mathf.Round(rawPos.x / 2) * 2, Mathf.Round(rawPos.y / 2 + 0.5f) * 2);
+
+                if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport) &&
+                Physics2D.OverlapBox(pos - new Vector2(0f, 1f), new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport))
+                {
+                    RoomPreviewAndSetup();
+                }
+                else
+                {
+                    roomPreview.SetActive(false);
+                }
             }
         }
     }
@@ -267,7 +283,7 @@ public class TileManager : MonoBehaviour
     //            {
     //                Gizmos.color = Color.red;
     //            }
-    //            Gizmos.DrawWireCube(new Vector3(i - gridSize / 2 + 0.5f, j - gridSize / 2 + 0.5f, 0), new Vector3(1, 1, 1));
+    //            Gizmos.DrawWireCube(new Vector3(i - gridSize / 2 + 0.5f, j - gridSize + 0.5f, 0), new Vector3(1, 1, 1));
     //        }
     //    }
     //}
