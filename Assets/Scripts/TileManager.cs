@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
@@ -29,6 +30,13 @@ struct MineralInfo
     }
 }
 
+[Serializable]
+struct RoomPlacement
+{
+    public Tilemap tilemap;
+    public Sprite sprite;
+}
+
 public class TileManager : MonoBehaviour
 {
     [SerializeField] private int gridSize;
@@ -43,8 +51,8 @@ public class TileManager : MonoBehaviour
     [SerializeField] private GameObject pipePreviewY;
     [SerializeField] private Transform testTransform;
 
-    [SerializeField] private Tilemap roomTileMap;
-    [SerializeField] private Sprite roomSprite;
+    [SerializeField] private RoomPlacement[] rooms;
+    [SerializeField] private LayerMask whatIsRoomSupport;
 
     [SerializeField] private GameObject roomPreview;
 
@@ -96,7 +104,7 @@ public class TileManager : MonoBehaviour
         Vector2 pos;
 
         // Set pipe
-        if (false)
+        if (rawPos.y < 1f)
         {
             bool CheckAvailability(Vector2Int checkPos, bool isHorizontal)
             {
@@ -116,7 +124,8 @@ public class TileManager : MonoBehaviour
                 }
             }
 
-            pos = new Vector2(Mathf.Round(rawPos.x + 0.5f) - 0.5f, Mathf.Round(rawPos.y + 0.5f) - 0.5f);
+            pos = new Vector2(Mathf.Round(rawPos.x), Mathf.Round(rawPos.y));
+            //pos = new Vector2(Mathf.Round(rawPos.x - 0.5f) + 0.5f, Mathf.Round(rawPos.y - 0.5f) + 0.5f);
 
             Vector2Int tilePos = new Vector2Int((int)(pos.x - 0.5f), (int)(pos.y - 0.5f));
             Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize - 1);
@@ -144,7 +153,7 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewY.transform.position = pos + new Vector2(tileSideLen / 2, 0);
+                        pipePreviewY.transform.position = pos;
                     }
                     else
                     {
@@ -163,7 +172,7 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreviewY.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewY.transform.position = pos - new Vector2(tileSideLen / 2, 0);
+                        pipePreviewY.transform.position = pos;
                     }
                 }
                 else
@@ -187,7 +196,7 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewX.transform.position = pos + new Vector2(0, tileSideLen / 2);
+                        pipePreviewX.transform.position = pos;
                     }
                     else
                     {
@@ -206,7 +215,7 @@ public class TileManager : MonoBehaviour
                         {
                             pipePreviewX.GetComponent<SpriteRenderer>().color = Color.red;
                         }
-                        pipePreviewX.transform.position = pos - new Vector2(0, tileSideLen / 2);
+                        pipePreviewX.transform.position = pos;
                     }
                 }
             }
@@ -216,14 +225,32 @@ public class TileManager : MonoBehaviour
                 pipePreviewY.SetActive(false);
             }
             //Debug.Log(tilePos);
+            testTransform.position = new Vector3(pos.x, pos.y, 1);
+            Debug.Log(pos - new Vector2(0.5f, 0.5f));
         }
+
 
         // Set room
+        else
         {
-            pos = new Vector2(Mathf.Round(rawPos.x) - 0.5f, Mathf.Round(rawPos.y + 0.5f) - 0.5f);
+            pos = new Vector2(Mathf.Round(rawPos.x), Mathf.Round(rawPos.y + 0.5f) - 0.5f);
+            Vector3Int tilePos = new Vector3Int((int)(pos.x), (int)(pos.y - 0.5f), 0);
+            if (!Physics2D.OverlapBox(pos, new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport) &&
+                Physics2D.OverlapBox(pos - new Vector2(0f, 0.5f), new Vector2(0.2f, 0.2f), 0, whatIsRoomSupport))
+            {
+                roomPreview.SetActive(true);
+                roomPreview.transform.position = pos;
+                if (Input.GetMouseButtonDown(0))
+                {
+                    roomTile.sprite = rooms[0].sprite;
+                    rooms[0].tilemap.SetTile(tilePos, roomTile);
+                }
+            }
+            else
+            {
+                roomPreview.SetActive(false);
+            }
         }
-
-        testTransform.position = new Vector3(pos.x, pos.y, 1);
     }
 
     //private void OnDrawGizmos()
