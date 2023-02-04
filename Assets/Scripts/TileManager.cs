@@ -74,11 +74,11 @@ public class TileManager : MonoBehaviour
                 mineralGrid[i, j] = new MineralInfo(3f, 2f, 1f);
             }
         }
-        mineralGrid[50, 50].xPipe = true;
-        mineralGrid[50, 50].yPipe = true;
-        mineralGrid[50, 50].coverage = true;
-        mineralGrid[49, 50].coverage = true;
-        mineralGrid[50, 49].coverage = true;
+        mineralGrid[50, 100].xPipe = true;
+        mineralGrid[50, 100].yPipe = true;
+        mineralGrid[50, 100].coverage = true;
+        mineralGrid[49, 100].coverage = true;
+        mineralGrid[50, 99].coverage = true;
         pipeTilemapX.SetTile(new Vector3Int(0, 0, 0), pipeTileX);
         pipeTilemapY.SetTile(new Vector3Int(0, 0, 0), pipeTileY);
     }
@@ -112,7 +112,7 @@ public class TileManager : MonoBehaviour
 
             //Avoid index out of bound
             Vector2Int tilePos = new Vector2Int((int)(pos.x - 0.5f), (int)(pos.y - 0.5f));
-            Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize / 2);
+            Vector2Int tileIdx = new Vector2Int(tilePos.x + gridSize / 2, tilePos.y + gridSize - 2);
             if (tileIdx.x > 0 && tileIdx.x < gridSize - 1 && tileIdx.y > 0 && tileIdx.y < gridSize - 1)
             {
                 if (Mathf.Abs(rawPos.x - pos.x) > Mathf.Abs(rawPos.y - pos.y))
@@ -205,7 +205,6 @@ public class TileManager : MonoBehaviour
         }
         Debug.Log(pos);
     }
-
 
     //private void OnDrawGizmos()
     //{
