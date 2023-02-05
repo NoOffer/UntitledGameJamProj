@@ -11,6 +11,8 @@ public class CamController : MonoBehaviour
 
     [SerializeField] private float camMoveSpeed;
 
+    [SerializeField] private GameObject tmp;
+
     private Vector3 prevMousePos;
 
     // Start is called before the first frame update
@@ -22,6 +24,14 @@ public class CamController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (transform.position.y < -11)
+        {
+            tmp.SetActive(false);
+        }
+        else
+        {
+            tmp.SetActive(true);
+        }
         if (Input.GetMouseButtonDown(2))
         {
             prevMousePos = Input.mousePosition;
@@ -29,7 +39,7 @@ public class CamController : MonoBehaviour
         if (Input.GetMouseButton(2))
         {
             transform.position -= new Vector3(0f,(Input.mousePosition - prevMousePos).y * camMoveSpeed * Camera.main.orthographicSize, 0f);
-            transform.position = new Vector3(transform.position.x, Mathf.Clamp(transform.position.y, -90f, 3f), transform.position.z);
+            transform.position = new Vector3(transform.position.x, Mathf.Min(transform.position.y, -90f), transform.position.z);
             prevMousePos = Input.mousePosition;
         }
         //Camera.main.orthographicSize = Mathf.Clamp(Camera.main.orthographicSize - Input.mouseScrollDelta.y * camResizeSpeed, minViewPort, maxViewPort);
