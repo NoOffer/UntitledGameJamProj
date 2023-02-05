@@ -29,7 +29,7 @@ public class CamController : MonoBehaviour
         if (Input.GetMouseButton(2))
         {
             transform.position -= new Vector3(0f,(Input.mousePosition - prevMousePos).y * camMoveSpeed * Camera.main.orthographicSize, 0f);
-            transform.position = new Vector3(transform.position.x, Mathf.Min(transform.position.y, 3f), transform.position.z);
+            transform.position = new Vector3(transform.position.x, Mathf.Clamp(transform.position.y, -90f, 3f), transform.position.z);
             prevMousePos = Input.mousePosition;
         }
         //Camera.main.orthographicSize = Mathf.Clamp(Camera.main.orthographicSize - Input.mouseScrollDelta.y * camResizeSpeed, minViewPort, maxViewPort);
