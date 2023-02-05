@@ -103,21 +103,21 @@ public class TileManager : MonoBehaviour
             for (int j = 0; j < gridSize; j++)
             {
                 float p = UnityEngine.Random.Range(0f, 1f);
-                if (p < 0.05)
+                if (p < 0.02) //mark1
                 {
-                    mineralGrid[i, j] = new MineralInfo(OreType.Advanced, 100);
+                    mineralGrid[i, j] = new MineralInfo(OreType.Advanced, 50);
+                }
+                else if (p < 0.08)
+                {
+                    mineralGrid[i, j] = new MineralInfo(OreType.Mana, 50);
                 }
                 else if (p < 0.15)
                 {
-                    mineralGrid[i, j] = new MineralInfo(OreType.Mana, 100);
-                }
-                else if (p < 0.3)
-                {
-                    mineralGrid[i, j] = new MineralInfo(OreType.Basic, 100);
+                    mineralGrid[i, j] = new MineralInfo(OreType.Basic, 50);
                 }
                 else
                 {
-                    mineralGrid[i, j] = new MineralInfo(OreType.None, 100);
+                    mineralGrid[i, j] = new MineralInfo(OreType.None, 0);
                 }
                 SetOreTile(i, j);
             }
