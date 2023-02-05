@@ -87,6 +87,8 @@ public class TileManager : MonoBehaviour
     private int population;
 
     [SerializeField] private Text oreDisplay;
+    [SerializeField] private Text alloyDisplay;
+    [SerializeField] private Text populationDisplay;
     [SerializeField] private Image constructionType;
 
     // Start is called before the first frame update
@@ -100,17 +102,21 @@ public class TileManager : MonoBehaviour
             for (int j = 0; j < gridSize; j++)
             {
                 float p = UnityEngine.Random.Range(0f, 1f);
-                if (p < 0.1)
+                if (p < 0.05)
                 {
                     mineralGrid[i, j] = new MineralInfo(OreType.Advanced, 100);
                 }
-                else if (p < 0.3)
+                else if (p < 0.15)
                 {
                     mineralGrid[i, j] = new MineralInfo(OreType.Mana, 100);
                 }
-                else if (p < 0.6)
+                else if (p < 0.3)
                 {
                     mineralGrid[i, j] = new MineralInfo(OreType.Basic, 100);
+                }
+                else
+                {
+                    mineralGrid[i, j] = new MineralInfo(OreType.None, 100);
                 }
                 SetOreTile(i, j);
             }
@@ -451,13 +457,13 @@ public class TileManager : MonoBehaviour
 
     private void LateUpdate()
     {
-        oreDisplay.text = "Ore: " + oreStorage[0] +
-            ", Mana: " + oreStorage[1] +
-            ", Ao: " + oreStorage[2] +
-            ", Alloy:" + alloyStorage[0] +
-            ", Mana: " + alloyStorage[1] +
-            ", Aa: " + alloyStorage[2] +
-            ", Population: " + population;
+        oreDisplay.text = oreStorage[0] +
+            "\n" + oreStorage[1] +
+            "\n" + oreStorage[2];
+        alloyDisplay.text = alloyStorage[0] +
+            "\n" + alloyStorage[1] +
+            "\n" + alloyStorage[2];
+        populationDisplay.text = population + "";
         constructionType.sprite = rooms[roomType].prefab.GetComponent<SpriteRenderer>().sprite;
     }
 
