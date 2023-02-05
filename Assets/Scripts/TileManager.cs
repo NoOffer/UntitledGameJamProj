@@ -292,7 +292,6 @@ public class TileManager : MonoBehaviour
         // Set room
         else
         {
-            Debug.Log(roomType);
             pipePreview.SetActive(false);
             roomPreview.SetActive(true);
             //Vector3Int tilePos = new Vector3Int((int)(pos.x), (int)(pos.y - 0.5f), 0);
@@ -338,7 +337,7 @@ public class TileManager : MonoBehaviour
             {
                 roomType = (roomType + 1) % 6;
             }
-            else if(Input.mouseScrollDelta.y > 0)
+            else if (Input.mouseScrollDelta.y > 0)
             {
                 roomType = (roomType + 5) % 6;
             }
@@ -508,7 +507,7 @@ public class TileManager : MonoBehaviour
                         break;
                 }
             }
-            roomPreview.transform.position = pos;
+            roomPreview.transform.position = new Vector3(pos.x, pos.y, -9f);
         }
     }
 
@@ -542,6 +541,7 @@ public class TileManager : MonoBehaviour
 
     private void LateUpdate()
     {
+        Debug.Log(alloyStorage[0] + " " + alloyStorage[1] + " " + alloyStorage[2]);
         oreDisplay.text = oreStorage[0] +
             "\n" + oreStorage[1] +
             "\n" + oreStorage[2];
