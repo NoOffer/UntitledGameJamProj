@@ -119,7 +119,6 @@ public class TileManager : MonoBehaviour
                 {
                     mineralGrid[i, j] = new MineralInfo(OreType.None, 0);
                 }
-                SetOreTile(i, j);
             }
         }
 
@@ -233,6 +232,10 @@ public class TileManager : MonoBehaviour
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
                                 alloyStorage[0] -= 5;
+                                SetOreTile((int)(pos.x + gridSize / 2), (int)(pos.y + gridSize));
+                                SetOreTile((int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize));
+                                SetOreTile((int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1));
+                                SetOreTile((int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1));
                             }
                         }
                         else
@@ -263,6 +266,10 @@ public class TileManager : MonoBehaviour
                                 mineralGrid[(int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1)].coverage = true;
                                 mineralGrid[(int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1)].coverage = true;
                                 alloyStorage[0] -= 5;
+                                SetOreTile((int)(pos.x + gridSize / 2), (int)(pos.y + gridSize));
+                                SetOreTile((int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize));
+                                SetOreTile((int)(pos.x + gridSize / 2 - 1), (int)(pos.y + gridSize - 1));
+                                SetOreTile((int)(pos.x + gridSize / 2), (int)(pos.y + gridSize - 1));
                             }
                         }
                         else
